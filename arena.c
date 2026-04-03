@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -43,12 +42,6 @@ void arena_clear(mem_arena* arena);
 #define PUSH_STRUCT_NZ(arena, T) (T*)arena_push(arena), sizeof(T), true)
 #define PUSH_ARRAY(arena, T, n) (*T)arena_push(arena), sizeof(T) * (n), false) 
 #define PUSH_ARRAY_NZ(arena, T, n) (T*)arena_push(arena), sizeof(T) * (n), true)
-
-void* plat_mem_reserve(u64 size);
-b32 plat_mem_commit(void* ptr, u64 size);
-b32 plat_mem_decommit(void* ptr, u64 size);
-b32 plat_mem_release(void* ptr, u64 size);
-
 
 int main(void){
   mem_arena* perm_arena = arena_create(MiB(1));
@@ -96,7 +89,4 @@ void arena_clear(mem_arena* arena){
   arena_pop_to(arena, ARENA_BASE_POS);
 };
 
-void* plat_mem_reserve(u64 size);
-b32 plat_mem_commit(void* ptr, u64 size);
-b32 plat_mem_decommit(void* ptr, u64 size);
-b32 plat_mem_release(void* ptr, u64 size);
+
