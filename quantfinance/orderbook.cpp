@@ -45,12 +45,12 @@ using LevelInfos = std::vector<LevelInfo>;
 class OrderBookLevelInfos{
 public:
 
-  OrderBookLevelInfos(const LevelInfo& bids, const LevelInfos& asks)
+  OrderBookLevelInfos(const LevelInfos& bids, const LevelInfos& asks)
     : bids_{ bids }
     , asks_{ asks }
     { }
-    const LevelInfo& GetBids() const { return bids_; }
-    const LevelInfo& GetAsks() const { return asks_; }
+    const  LevelInfos& GetBids() const { return bids_; }
+    const  LevelInfos& GetAsks() const { return asks_; }
 
 private:
     LevelInfos bids_;
@@ -76,9 +76,10 @@ public:
     Quantity GetInitialQuantity() const { return initialQuantity_; }
     Quantity GetRemainingQuantity() const { return remainingQuantity_; }
     Quantity GetFilledQuantity() const {return GetInitialQuantity() - GetRemainingQuantity(); }
+    bool isFilled() const { return GetRemainingQuantity(); }
     void Fill(Quantity quantity){
       if (quantity > GetRemainingQuantity()){
-        throw std::logic_error(std::format("Order ([]) cannot be fillled for more than its remaining quantity", GetOrderId()));
+        throw std::logic_error(std::format("Order ({}) cannot be fillled for more than its remaining quantity", GetOrderId()));
       }
       remainingQuantity_ -= quantity;
     }
@@ -89,7 +90,7 @@ private:
   Price price_;
   Quantity initialQuantity_;
   Quantity remainingQuantity_;
-}
+};
 
 using OrderPointer = std::shared_ptr<Order>;
 using OrderPointers = std::list<OrderPointer>;
@@ -101,6 +102,7 @@ class OrderModify{
       , price_{ price }
       , side_{ side }
       , quantity_{ quantity }
+      {}
 
       OrderId GetOrderId() const { return orderId_; }
       Price GetPrice() const { return price_; }
@@ -108,19 +110,19 @@ class OrderModify{
       Quantity GetQuantity() const { return quantity_; }
       
       OrderPointer ToOrderPointer(OrderType type) const {
-        return std::make_shared<Order>(type, GetOrderId(), GetPrice(), GetQuantity());
+        return std::make_shared<Order>(type, GetOrderId(), GetSide(), GetPrice(), GetQuantity());
       }
 
   private:
-      OrderId orderId;
-      Price price;
-      Side side;
-      Quantity quantity;
-}
+      OrderId orderId_;
+      Price price_;
+      Side side_;
+      Quantity quantity_;
+};
 
 struct TradeInfo
 {
-  OrderID orderId_;
+  OrderId orderId_;
   Price price_;
   Quantity quantity_;
 };
@@ -133,8 +135,8 @@ class Trade
       , askTrade_{ askTrade }
       {}
 
-      const TradeInfo& GetBigTrade() const { return bidTrade; }
-      const TradeInfo& GetAskTrade() const { return askTrade; }
+      const TradeInfo& GetBigTrade() const { return bidTrade_; }
+      const TradeInfo& GetAskTrade() const { return askTrade_; }
 
   private:
       TradeInfo bidTrade_;
@@ -184,7 +186,37 @@ class OrderBook
          break;
        }
        auto& [bidPrice, bids] = *bids_.begin();
+       auto& [askPrice, asks] = *asks_.begin();
+      
+       if (bidPrice < askPrice){
+         break;
+       }
 
+       while (bids.size() && asks.size()){
+         auto& bid = bids.front();
+         auto& ask = asks.front();
+
+         Quantity quantity = std::min(bid->GetRemainingQuantity(), ask->GetRemainingQuantity());
+         
+         bid->Fill(quantity);
+         ask->Fill(quantity);
+
+         if (bid->IsFilled()){
+           bids.pop_front();
+           orders_.erase(bid->GetOrderId())
+         }
+         if (asks->IsFilled){
+           asks.pop_front();
+           orders_.erase(ask->GetOrderId());
+         }
+
+         if (bids_.empty()){
+           bids_.erase(bidPrice);
+         }
+         if (asks_.empty()){
+           asks_.erase(askPrice);
+         }
+       }
      }
     
    }
